@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#020713" name="theme-color"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="JUG SCAN" name="apple-mobile-web-app-title"/>
+<link href="manifest.webmanifest" rel="manifest"/>
+<link href="./assets/pwa/icon-180.png" rel="apple-touch-icon"/>
+<title>JUG SCAN</title>
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app-shell" id="app">
+<header class="topbar">
+<div aria-label="JUG SCAN" class="brand-lockup">
+<img alt="" class="brand-clown" src="./assets/branding/mascot-face.png"/>
+<div>
+<img class="compact-logo" alt="JUG SCAN" src="./assets/branding/jugscan-logo-compact.webp">
+<div class="date-label" id="dateLabel"></div>
+</div>
+</div>
+<button aria-label="店舗変更" class="ghost-btn image-action store-change hidden" id="changeStoreBtn" type="button"><span>店舗変更</span></button>
+</header>
+<main>
+<section aria-labelledby="storeTitle" class="screen store-screen active" id="storeScreen">
+<div class="splash-hero">
+<img alt="JUG SCAN" class="splash-logo" src="./assets/branding/jugscan-logo-main.webp"/>
+<img class="hero-mascot" alt="" src="./assets/branding/mascot-clown.png"><p>店舗を選んで、ジャグラーの台データを高速記録。</p>
+</div>
+<div class="panel store-add-panel">
+<div class="panel-title-row">
+<span class="panel-icon">＋</span>
+<h1 id="storeTitle">新しい店舗を追加</h1>
+</div>
+<label class="sr-only" for="newStoreName">店名</label>
+<input autocomplete="off" class="text-input large" id="newStoreName" placeholder="店名を入力" type="text"/>
+<button aria-label="この店舗で開始" class="primary-btn start-btn image-action" id="startNewStoreBtn" type="button"><span>この店舗で開始</span></button>
+</div>
+<div class="panel">
+<div class="section-heading-row">
+<div>
+<span class="eyebrow">STORE HISTORY</span>
+<h2>最近使った店舗</h2>
+</div>
+<button class="text-btn" id="showAllStoresBtn" type="button">すべて表示</button>
+</div>
+<div class="store-list" id="recentStores"></div>
+<div class="empty-state" id="emptyStores">まだ保存された店舗はありません。</div>
+</div>
+</section>
+<section aria-labelledby="scanTitle" class="screen scan-screen" id="scanScreen">
+<div class="store-strip neon-strip">
+<div>
+<span class="eyebrow">CURRENT STORE</span>
+<strong id="currentStoreName"></strong>
+</div>
+<span class="count-pill" id="recordCount">0台</span>
+</div>
+<div class="panel compact-panel machine-panel">
+<div class="section-heading-row machine-heading">
+<div>
+<span class="eyebrow">JUGGLER SELECT</span>
+<h2 id="scanTitle">機種選択</h2>
+</div>
+</div>
+<div class="machine-grid" id="primaryMachines"></div>
+<label class="other-machine-wrap" for="otherMachineSelect">
+
+<select class="select-input" id="otherMachineSelect">
+<option value="">その他の機種を選択</option>
+</select>
+</label>
+</div>
+<div class="panel compact-panel data-panel">
+<div class="section-heading-row data-heading">
+<div>
+<span class="eyebrow">QUICK INPUT</span>
+<h2>台データ入力</h2>
+</div>
+<button aria-label="入力クリア" class="mini-btn clear-btn image-action" id="clearFormBtn" type="button"><span>入力クリア</span></button>
+</div>
+<div class="input-grid">
+<label class="metric-input machine-no">台番号
+              <input autocomplete="off" class="number-input" id="machineNo" inputmode="numeric" pattern="[0-9]*" type="text"/>
+</label>
+<label class="metric-input games">累計G
+              <input autocomplete="off" class="number-input" id="games" inputmode="numeric" pattern="[0-9]*" type="text"/>
+</label>
+<label class="metric-input bb">BB
+              <input autocomplete="off" class="number-input" id="bb" inputmode="numeric" pattern="[0-9]*" type="text"/>
+</label>
+<label class="metric-input rb">RB
+              <input autocomplete="off" class="number-input" id="rb" inputmode="numeric" pattern="[0-9]*" type="text"/>
+</label>
+</div>
+<div aria-live="polite" class="probability-row">
+<div class="probability-box bb"><span>BB確率</span><strong id="bbProbability">—</strong></div><div class="probability-box reg"><span>REG確率</span><strong id="regProbability">—</strong></div>
+<div class="probability-box combined"><span>合算確率</span><strong id="combinedProbability">—</strong></div>
+</div>
+<label class="note-label">備考（任意）
+            <input autocomplete="off" class="text-input" id="note" placeholder="例：角2" type="text"/>
+</label>
+<button aria-label="この台を登録" class="primary-btn register-btn image-action" id="registerBtn" type="button"><span>＋ この台を登録</span></button>
+<button class="secondary-btn hidden" id="cancelEditBtn" type="button">編集をキャンセル</button>
+<button class="secondary-btn hidden" id="deleteEditingBtn" type="button">この台を削除</button>
+</div>
+<div class="panel compact-panel list-panel">
+<div class="section-heading-row list-heading">
+<div>
+<span class="eyebrow">REGISTERED</span>
+<p id="visibleCount"></p><h2 id="listMachineTitle">ファンキー2</h2>
+</div>
+</div>
+<button id="compareBtn" class="secondary-btn" type="button"><img class="icon" src="./assets/icons/icon-compare.svg" alt="">まとめて相談</button><div aria-label="並び順" class="sort-row" role="group">
+<button class="sort-btn sort-created active" data-sort="created" type="button">登録順</button>
+<button class="sort-btn sort-reg" data-sort="reg" type="button">REG順</button>
+<button class="sort-btn sort-combined" data-sort="combined" type="button">合算順</button>
+<button class="sort-btn sort-number" data-sort="number" type="button">台番号順</button>
+</div>
+<div class="records-list" id="recordsList"></div>
+<div class="empty-state" id="emptyRecords">この機種はまだ登録されていません。</div>
+</div>
+</section>
+<section aria-labelledby="historyTitle" class="screen history-screen" id="historyScreen">
+<div class="panel history-filter-panel">
+<div class="section-heading-row">
+<div>
+<span class="eyebrow">HISTORY</span>
+<h1 id="historyTitle">保存データ</h1>
+</div>
+<button class="text-btn" id="backToScanBtn" type="button">巡回へ戻る</button>
+</div>
+<div class="history-filter-grid">
+<label>日付
+              <input class="text-input" id="historyDate" type="date"/>
+</label>
+<label>店舗
+              <select class="select-input full" id="historyStoreSelect"></select>
+</label>
+</div>
+</div>
+<div class="panel compact-panel">
+<div class="records-list" id="historyList"></div>
+<div class="empty-state" id="emptyHistory">この条件の保存データはありません。</div>
+</div>
+</section>
+</main>
+<nav aria-label="メインナビゲーション" class="bottom-nav">
+<button class="nav-btn active" id="navStores" type="button"><span class="nav-icon"><img class="icon" alt="" src="./assets/icons/icon-store.svg"></span><span>店舗</span></button>
+<button class="nav-btn" id="navScan" type="button"><span class="nav-icon"><img class="icon" alt="" src="./assets/icons/icon-scan.svg"></span><span>巡回</span></button>
+<button class="nav-btn" id="navHistory" type="button"><span class="nav-icon"><img class="icon" alt="" src="./assets/icons/icon-history.svg"></span><span>履歴</span></button>
+</nav>
+</div>
+<div class="modal-backdrop hidden" id="modalBackdrop" role="presentation">
+<div aria-labelledby="modalTitle" aria-modal="true" class="modal" role="dialog">
+<div class="modal-mascot"><img alt="" src="./assets/branding/mascot-face.png"/></div>
+<h2 id="modalTitle">確認</h2>
+<p id="modalMessage"></p>
+<div class="modal-actions">
+<button class="secondary-btn" id="modalCancel" type="button">キャンセル</button>
+<button class="primary-btn danger-aware" id="modalConfirm" type="button">上書き</button>
+</div>
+</div>
+</div>
+<div aria-live="polite" class="toast hidden" id="toast" role="status"></div>
+<script src="./app.js" defer></script>
+<dialog id="compareSheet" class="sheet"><h2>ChatGPTにまとめて相談</h2><p id="compareContext"></p><div class="sheet-tools"><button id="selectAll">すべて選択</button><button id="selectNone">すべて解除</button></div><div id="compareList"></div><div class="sheet-footer"><button id="copySelected" class="primary-btn"></button><button id="closeCompare">キャンセル</button></div></dialog>
+<dialog id="manualCopy" class="sheet"><h2>手動でコピー</h2><p>本文を選択してコピーしてください。</p><textarea id="promptText" readonly></textarea><button id="selectPrompt">本文を選択</button><button id="closeManual">閉じる</button></dialog></body>
+</html>
