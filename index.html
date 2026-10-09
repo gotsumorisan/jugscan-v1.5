@@ -85,7 +85,7 @@
 </div>
 <button aria-label="入力クリア" class="mini-btn clear-btn image-action" id="clearFormBtn" type="button"><span>入力クリア</span></button>
 </div>
-<div class="input-grid">
+<label class="note-label record-date-label" for="recordDate">データの日付<input class="text-input" id="recordDate" type="date" required></label><p id="recordDateContext" aria-live="polite"></p><div class="input-grid">
 <label class="metric-input machine-no">台番号
               <input autocomplete="off" class="number-input" id="machineNo" inputmode="numeric" pattern="[0-9]*" type="text"/>
 </label>
@@ -117,7 +117,7 @@
 <p id="visibleCount"></p><h2 id="listMachineTitle">ファンキー2</h2>
 </div>
 </div>
-<button id="compareBtn" class="secondary-btn" type="button"><img class="icon" src="./assets/icons/icon-compare.svg" alt="">まとめて相談</button><div aria-label="並び順" class="sort-row" role="group">
+<button id="compareBtn" class="secondary-btn" type="button"><img class="icon" src="./assets/icons/icon-compare.svg" alt="">まとめて相談</button><button id="materialsBtn" class="secondary-btn" type="button"><img class="icon" src="./assets/icons/icon-copy.svg" alt="">AIへまとめて資料コピー</button><div aria-label="並び順" class="sort-row" role="group">
 <button class="sort-btn sort-created active" data-sort="created" type="button">登録順</button>
 <button class="sort-btn sort-reg" data-sort="reg" type="button">REG順</button>
 <button class="sort-btn sort-combined" data-sort="combined" type="button">合算順</button>
@@ -146,7 +146,7 @@
 </div>
 </div>
 <div class="panel compact-panel">
-<div class="records-list" id="historyList"></div>
+<button id="historyMaterialsBtn" class="secondary-btn" type="button" disabled><img class="icon" src="./assets/icons/icon-copy.svg" alt="">この日の資料をまとめてコピー</button><div class="records-list" id="historyList"></div>
 <div class="empty-state" id="emptyHistory">この条件の保存データはありません。</div>
 </div>
 </section>
@@ -170,6 +170,6 @@
 </div>
 <div aria-live="polite" class="toast hidden" id="toast" role="status"></div>
 <script src="./app.js" defer></script>
-<dialog id="compareSheet" class="sheet"><h2>ChatGPTにまとめて相談</h2><p id="compareContext"></p><div class="sheet-tools"><button id="selectAll">すべて選択</button><button id="selectNone">すべて解除</button></div><div id="compareList"></div><div class="sheet-footer"><button id="copySelected" class="primary-btn"></button><button id="closeCompare">キャンセル</button></div></dialog>
+<dialog id="compareSheet" class="sheet"><h2 id="compareTitle">AIにまとめて相談</h2><p id="compareContext"></p><div class="sheet-tools"><button id="selectAll">すべて選択</button><button id="selectNone">すべて解除</button></div><div id="compareList"></div><div class="sheet-footer"><button id="copySelected" class="primary-btn"></button><button id="closeCompare">キャンセル</button></div></dialog>
 <dialog id="manualCopy" class="sheet"><h2>手動でコピー</h2><p>本文を選択してコピーしてください。</p><textarea id="promptText" readonly></textarea><button id="selectPrompt">本文を選択</button><button id="closeManual">閉じる</button></dialog></body>
 </html>

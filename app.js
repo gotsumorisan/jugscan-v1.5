@@ -5,22 +5,79 @@ async function deleteRecord(r) {if(!(await confirmModal({title:'この台を削�
 function promptValues(r) {r=normalizeRecord(r);return {'正式機種名':r.machinePromptName,'台番号':r.machineNo,'G':r.games,'BB':r.bb,'RB':r.rb,'BB確率':probabilityText(r.games,r.bb),'REG確率':probabilityText(r.games,r.rb),'合算確率':probabilityText(r.games,r.bb+r.rb),'備考または「なし」':r.note || 'なし'};}
 function fillTemplate(text,values) {return text.replace(/\{([^}]+)\}/g,(all,key)=>Object.hasOwn(values,key)?values[key]:all);}
 function currentTimestamp() {const d=new Date();return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
-function singlePrompt(r) {const store=state.stores?.find(s=>s.id===r.storeId);return fillTemplate(PROMPT_TEMPLATES[0],{...promptValues(r),'現在日時':currentTimestamp(),'店舗名':store?.name || r.storeName});}
-function comparisonPrompt(rows) {const base=fillTemplate(PROMPT_TEMPLATES[1],{'現在日時':currentTimestamp(),'店舗名':state.currentStore.name,'N':rows.length});const candidates=rows.map((r,i)=>fillTemplate(`【候補${i+1}】\n機種：{正式機種名}\n台番号：{台番号}\n今日の累計G：{G}G\nBB：{BB}（{BB確率}）\nRB：{RB}（{REG確率}）\n合算：{合算確率}\n備考：{備考または「なし」}`,promptValues(r))).join('\n\n');return base.replace(/【候補1】[\s\S]*?(?=実戦当日の)/,candidates+'\n\n');}
+function singlePrompt(r) {
+ const store=state.stores?.find(s=>s.id===r.storeId);
+ const text=fillTemplate(PROMPT_TEMPLATES[0],{...promptValues(r),'現在日時':currentTimestamp(),'店舗名':store?.name || r.storeName});
+ return contextualizeConsultation(text,[r]);
+}
+function comparisonPrompt(rows) {
+ const storeName=state.stores?.find(s=>s.id===rows[0]?.storeId)?.name || rows[0]?.storeName || state.currentStore?.name;
+ const base=fillTemplate(PROMPT_TEMPLATES[1],{'現在日時':currentTimestamp(),'店舗名':storeName,'N':rows.length});
+ const candidates=rows.map((r,i)=>fillTemplate(`【候補${i+1}】\n記録日：${r.date.replaceAll('-','/')}\n機種：{正式機種名}\n台番号：{台番号}\nデータ日の累計G：{G}G\nBB：{BB}（{BB確率}）\nRB：{RB}（{REG確率}）\n合算：{合算確率}\n備考：{備考または「なし」}`,promptValues(r))).join('\n\n');
+ return contextualizeConsultation(base.replace(/【候補1】[\s\S]*?(?=実戦当日の)/,candidates+'\n\n'),rows);
+}
+function contextualizeConsultation(text,rows) {
+ const dates=[...new Set(rows.map(r=>r.date))];
+ const note=dates.some(d=>d!==localDateISO()) ? '\n過去日など本日以外の記録が含まれます。この記録だけを現在の着席判断に使わず、現在の台データと当日条件を確認してください。\n' : '';
+ return `データ日：${dates.map(d=>d.replaceAll('-','/')).join('、')}${note}\n${text.replaceAll('今日の累計G','データ日の累計G')}`;
+}
+function selectedRecordDate() { return state.recordDate || localDateISO(); }
+function validRecordDate(value) {
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+ const date=new Date(`${value}T12:00:00`);
+ return Number.isFinite(date.getTime()) && localDateISO(date)===value;
+}
+function syncRecordDate() {
+ const date=selectedRecordDate();
+ els.recordDate.value=date;
+ els.recordDateContext.textContent=`${date.replaceAll('-','/')}のデータ${date!==localDateISO()?' · 本日以外の記録':''}`;
+}
+function materialPrompt(rows) {
+ const data=rows.map((raw,i)=>{
+  const r=normalizeRecord(raw), store=state.stores?.find(s=>s.id===r.storeId);
+  return `【資料${i+1}】\n記録日：${r.date.replaceAll('-','/')}\n店舗：${store?.name || r.storeName}\n機種：${r.machinePromptName}\n台番号：${r.machineNo}\n累計G：${r.games}G\nBB：${r.bb}（${probabilityText(r.games,r.bb)}）\nRB：${r.rb}（${probabilityText(r.games,r.rb)}）\n合算：${probabilityText(r.games,r.bb+r.rb)}\n備考：${r.note || 'なし'}`;
+ }).join('\n\n');
+ return `AIへ、JUG SCANの記録を分析資料として提供します。\n\nコピー日時：${currentTimestamp()}\n資料台数：${rows.length}台\n以下の記録日はデータの対象日です。コピー日時とは区別してください。\n\n${data}\n\nこれは着席判断の依頼ではありません。以下の記録をこの会話の分析資料として参照してください。\n入力値と機械的に計算した確率を区別し、記録日・店舗・機種ごとに整理してください。\n複数の記録がある場合は、サンプル量と機種固有の違いを考慮して傾向を分析してください。\n不足している情報や分析上の限界は明示し、店舗状況や設定を推測で補完しないでください。\nこの資料だけで高設定や現在の着席可否を断定しないでください。`;
+}
+
 async function copyPrompt(text,message) {try {await navigator.clipboard.writeText(text);showToast(message);return true;}catch(error){console.info('Clipboard fallback',error);}const t=document.createElement('textarea');t.value=text;t.style.cssText='position:fixed;top:0;left:0;opacity:0';(document.querySelector('dialog[open]') || document.body).append(t);t.focus();t.select();t.setSelectionRange(0,text.length);let ok=false;try{ok=document.execCommand('copy');}catch(error){console.info('Copy fallback failed',error);}t.remove();if(ok){showToast(message);return true;}$('promptText').value=text;$('manualCopy').showModal();return false;}
 let comparisonRows=[];
-function updateSelection() {const n=$('compareList').querySelectorAll('input:checked').length;$('copySelected').disabled=n===0;$('copySelected').innerHTML=`<img class="icon" src="./assets/icons/icon-copy.svg" alt="">選択した${n}台をコピー`;}
+let comparisonPurpose='consult';
+function updateSelection() {
+ const n=$('compareList').querySelectorAll('input:checked').length;
+ $('copySelected').disabled=n===0;
+ const action=comparisonPurpose==='material'?'資料コピー':'コピー';
+ $('copySelected').innerHTML=`<img class="icon" src="./assets/icons/icon-copy.svg" alt="">選択した${n}台を${action}`;
+}
+async function openComparison(purpose,date,storeId) {
+ const rows=(await getRecordsFor(date,storeId)).sort(recordSorter('created'));
+ if(!rows.length)return showToast('この日の登録データはありません');
+ comparisonRows=rows;
+ comparisonPurpose=purpose;
+ $('compareTitle').textContent=purpose==='material'?'AIへまとめて資料提供':'AIにまとめて相談';
+ const store=state.stores?.find(s=>s.id===storeId);
+ $('compareContext').textContent=`${store?.name || rows[0].storeName} · ${date.replaceAll('-','/')}`;
+ $('compareList').innerHTML=rows.map((r,i)=>`<label class="candidate"><input type="checkbox" checked value="${i}"><span>${escapeHtml(r.machineNo)}番台 · ${escapeHtml(r.machineLabel)}<small>${r.games}G / REG ${probabilityText(r.games,r.rb)} / 合算 ${probabilityText(r.games,r.bb+r.rb)}</small></span></label>`).join('');
+ updateSelection();$('compareSheet').showModal();
+}
 function bindConsultation() {
- $('compareBtn').onclick=async()=>{comparisonRows=(await getRecordsFor(localDateISO(),state.currentStore.id)).sort(recordSorter('created'));$('compareContext').textContent=`${state.currentStore.name} · ${localDateISO().replaceAll('-','/')}`;$('compareList').innerHTML=comparisonRows.map((r,i)=>`<label class="candidate"><input type="checkbox" checked value="${i}"><span>${escapeHtml(r.machineNo)}番台 · ${escapeHtml(r.machineLabel)}<small>${r.games}G / REG ${probabilityText(r.games,r.rb)} / 合算 ${probabilityText(r.games,r.bb+r.rb)}</small></span></label>`).join('');updateSelection();$('compareSheet').showModal();};
+ $('compareBtn').onclick=()=>openComparison('consult',selectedRecordDate(),state.currentStore.id);
+ $('materialsBtn').onclick=()=>openComparison('material',selectedRecordDate(),state.currentStore.id);
+ $('historyMaterialsBtn').onclick=()=>openComparison('material',els.historyDate.value,els.historyStoreSelect.value);
  $('compareList').onchange=updateSelection;
  for(const [id,checked] of [['selectAll',true],['selectNone',false]])$(id).onclick=()=>{$('compareList').querySelectorAll('input').forEach(c=>c.checked=checked);updateSelection();};
- $('copySelected').onclick=()=>{const rows=[...$('compareList').querySelectorAll('input:checked')].map(c=>comparisonRows[Number(c.value)]);if(rows.length)void copyPrompt(comparisonPrompt(rows),`${rows.length}台分の相談プロンプトをコピーしました ✓`);};
+ $('copySelected').onclick=()=>{
+  const rows=[...$('compareList').querySelectorAll('input:checked')].map(c=>comparisonRows[Number(c.value)]);
+  if(!rows.length)return;
+  const text=comparisonPurpose==='material'?materialPrompt(rows):comparisonPrompt(rows);
+  void copyPrompt(text,comparisonPurpose==='material'?`${rows.length}台分の資料をコピーしました ✓`:`${rows.length}台分の相談プロンプトをコピーしました ✓`);
+ };
  $('closeCompare').onclick=()=>$('compareSheet').close();$('closeManual').onclick=()=>$('manualCopy').close();$('selectPrompt').onclick=()=>{$('promptText').focus();$('promptText').select();};
  document.addEventListener('keydown',e=>{if(e.key==='Escape' && state.modalResolver)closeModal(false);});
 }
 
 
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.1';
 const DB_NAME = 'jugscan-db';
 const DB_VERSION = 1;
 const STORE_STORES = 'stores';
@@ -164,7 +221,7 @@ function setupElements() {
     'showAllStoresBtn','recentStores','emptyStores','currentStoreName','recordCount','primaryMachines','otherMachineSelect',
     'machineNo','games','bb','rb','note','regProbability','combinedProbability','registerBtn','cancelEditBtn','deleteEditingBtn','clearFormBtn',
     'listMachineTitle','recordsList','emptyRecords','historyDate','historyStoreSelect','historyList','emptyHistory','backToScanBtn',
-    'navStores','navScan','navHistory','modalBackdrop','modalTitle','modalMessage','modalCancel','modalConfirm','toast','bbProbability','visibleCount','compareBtn'
+    'navStores','navScan','navHistory','modalBackdrop','modalTitle','modalMessage','modalCancel','modalConfirm','toast','bbProbability','visibleCount','compareBtn','recordDate','recordDateContext','materialsBtn','historyMaterialsBtn'
   ].forEach(id => els[id] = $(id));
 }
 
@@ -429,6 +486,8 @@ async function selectStore(store) {
   store.lastUsedAt = Date.now();
   await dbPut(STORE_STORES, store);
   state.currentStore = store;
+  state.recordDate = null;
+  syncRecordDate();
   localStorage.setItem('jugscan-current-store-id', store.id);
   els.currentStoreName.textContent = store.name;
   els.newStoreName.value = '';
@@ -555,10 +614,10 @@ function validateForm() {
 
 async function saveCurrentRecord() {
   if (!state.currentStore) return;
-  const error = validateForm();
+  const error = validRecordDate(els.recordDate.value) ? validateForm() : 'データの日付を入力してください';
   if (error) { showToast(error); return; }
 
-  const date = state.editingDate || localDateISO();
+  const date = els.recordDate.value;
   const machineNo = normalizeDigits(els.machineNo.value);
   const newId = makeRecordId(date, state.currentStore.id, machineNo);
   const existing = await dbGet(STORE_RECORDS, newId);
@@ -567,7 +626,7 @@ async function saveCurrentRecord() {
   if (existing && newId !== state.editingOriginalId) {
     const overwrite = await confirmModal({
       title: '重複する台番号',
-      message: `${machineNo}番台はすでに登録されています。\n現在のデータを上書きしますか？`,
+      message: `${date.replaceAll('-','/')}の${machineNo}番台はすでに登録されています。\n現在のデータを上書きしますか？`,
       confirmText: '上書き'
     });
     if (!overwrite) return;
@@ -602,15 +661,19 @@ async function saveCurrentRecord() {
   clearForm(true);
   showToast(resultMessage);
   await renderRecords();
+  await renderHistory();
 }
 
 async function renderRecords() {
   if (!state.currentStore) return;
-  const all = await getRecordsFor(localDateISO(), state.currentStore.id);
+  syncRecordDate();
+  const date = selectedRecordDate();
+  const all = await getRecordsFor(date, state.currentStore.id);
   els.recordCount.textContent = `${all.length}台`;
   const filtered = all.filter(r => r.machineLabel === state.currentMachine);
   els.visibleCount.textContent = `全${all.length}台 / この機種${filtered.length}台`;
   els.compareBtn.disabled = all.length === 0;
+  els.materialsBtn.disabled = all.length === 0;
   filtered.sort(recordSorter(state.sort));
   els.recordsList.innerHTML = '';
   els.emptyRecords.classList.toggle('hidden', filtered.length > 0);
@@ -632,14 +695,17 @@ function recordSorter(sort) {
 
 function makeRecordCard(record) {
  const r=normalizeRecord(record), card=document.createElement('article'); card.className='record-card';
- card.innerHTML=`<div class="record-machine-name">${escapeHtml(r.machineLabel)} · ${escapeHtml(r.date.replaceAll('-','/'))}</div><div class="record-top"><div>台番<strong>${escapeHtml(r.machineNo)}</strong></div><div>累計G<strong>${r.games}</strong></div><div class="bb">BB<strong>${r.bb}</strong></div><div class="rb">RB<strong>${r.rb}</strong></div></div><div class="record-bottom"><span class="bb">BB ${probabilityText(r.games,r.bb)}</span><span class="reg">REG ${probabilityText(r.games,r.rb)}</span><span class="combined">合算 ${probabilityText(r.games,r.bb+r.rb)}</span></div><p>${escapeHtml(r.note || '')}</p><div class="card-actions"><button data-action="edit"><img class="icon" src="./assets/icons/icon-edit.svg" alt="">編集</button><button data-action="delete" class="danger"><img class="icon" src="./assets/icons/icon-delete.svg" alt="">削除</button></div><button class="consult secondary-btn"><img class="icon" src="./assets/icons/icon-ai-consult.svg" alt="">ChatGPTに相談</button>`;
+ card.innerHTML=`<div class="record-machine-name">${escapeHtml(r.machineLabel)} · ${escapeHtml(r.date.replaceAll('-','/'))}</div><div class="record-top"><div>台番<strong>${escapeHtml(r.machineNo)}</strong></div><div>累計G<strong>${r.games}</strong></div><div class="bb">BB<strong>${r.bb}</strong></div><div class="rb">RB<strong>${r.rb}</strong></div></div><div class="record-bottom"><span class="bb">BB ${probabilityText(r.games,r.bb)}</span><span class="reg">REG ${probabilityText(r.games,r.rb)}</span><span class="combined">合算 ${probabilityText(r.games,r.bb+r.rb)}</span></div><p>${escapeHtml(r.note || '')}</p><div class="card-actions"><button data-action="edit"><img class="icon" src="./assets/icons/icon-edit.svg" alt="">編集</button><button data-action="delete" class="danger"><img class="icon" src="./assets/icons/icon-delete.svg" alt="">削除</button></div><button class="consult secondary-btn"><img class="icon" src="./assets/icons/icon-ai-consult.svg" alt="">AIに相談</button><button class="material-copy secondary-btn"><img class="icon" src="./assets/icons/icon-copy.svg" alt="">AIへ資料コピー</button>`;
  card.querySelector('[data-action="edit"]').onclick=async()=>{if(!(await confirmDiscardIfNeeded()))return; const store=await dbGet(STORE_STORES,r.storeId); if(!store)return showToast('店舗が見つかりません'); state.currentStore=store; els.currentStoreName.textContent=store.name; showScreen('scan'); editRecord(r); await renderRecords();};
  card.querySelector('[data-action="delete"]').onclick=()=>deleteRecord(r);
- card.querySelector('.consult').onclick=()=>copyPrompt(singlePrompt(r),'ChatGPT相談用プロンプトをコピーしました ✓'); return card;
+ card.querySelector('.consult').onclick=()=>copyPrompt(singlePrompt(r),'AI相談用プロンプトをコピーしました ✓');
+ card.querySelector('.material-copy').onclick=()=>copyPrompt(materialPrompt([r]),'AIへの資料をコピーしました ✓'); return card;
 }
 
 function editRecord(record) {
   state.editingDate = record.date;
+  state.recordDate = record.date;
+  syncRecordDate();
   state.currentMachine = normalizeRecord(record).machineLabel;
   updateMachineButtons();
   els.machineNo.value = record.machineNo;
@@ -690,6 +756,7 @@ async function populateHistoryStores(stores = null) {
 
 async function renderHistory() {
   const date = els.historyDate.value || localDateISO();
+  els.historyMaterialsBtn.disabled = true;
   const storeId = els.historyStoreSelect.value;
   if (!storeId) {
     els.historyList.innerHTML = '';
@@ -697,6 +764,7 @@ async function renderHistory() {
     return;
   }
   const rows = await getRecordsFor(date, storeId);
+  els.historyMaterialsBtn.disabled = rows.length === 0;
   rows.sort((a,b) => a.machine.localeCompare(b.machine, 'ja') || Number(a.machineNo) - Number(b.machineNo));
   els.historyList.innerHTML = '';
   els.emptyHistory.classList.toggle('hidden', rows.length > 0);
@@ -729,7 +797,7 @@ function bindEvents() {
   els.navHistory.addEventListener('click', async () => {
     if (!(await confirmDiscardIfNeeded())) return;
     clearForm(false);
-    els.historyDate.value = localDateISO();
+    els.historyDate.value = selectedRecordDate();
     await populateHistoryStores();
     // 履歴を開いた直後は、今巡回している店舗を優先表示する。
     if (state.currentStore && [...els.historyStoreSelect.options].some(opt => opt.value === state.currentStore.id)) {
@@ -741,6 +809,12 @@ function bindEvents() {
   els.backToScanBtn.addEventListener('click', async () => {
     if (!state.currentStore) showScreen('stores');
     else { showScreen('scan'); await renderRecords(); }
+  });
+  els.recordDate.addEventListener('change', async()=>{
+    if(!validRecordDate(els.recordDate.value)){showToast('有効なデータの日付を入力してください');return;}
+    state.recordDate=els.recordDate.value;
+    syncRecordDate();
+    await renderRecords();
   });
   els.historyDate.addEventListener('change', renderHistory);
   els.historyStoreSelect.addEventListener('change', renderHistory);
@@ -766,6 +840,7 @@ async function init() {
   bindConsultation();
   els.dateLabel.textContent = `${displayDate(localDateISO())}  v${APP_VERSION}`;
   els.historyDate.value = localDateISO();
+  syncRecordDate();
   state.db = await openDb();
   renderMachineSelectors();
   bindEvents();
