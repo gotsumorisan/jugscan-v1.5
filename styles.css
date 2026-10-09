@@ -7,3 +7,6 @@
 input.text-input[type="date"]{display:block;-webkit-appearance:none;appearance:none;box-sizing:border-box;width:100%;max-width:100%;min-width:0;height:48px;padding:10px;overflow:hidden}
 input[type="date"]::-webkit-date-and-time-value{min-width:0;text-align:left}
 input[type="date"]::-webkit-datetime-edit{min-width:0;padding:0}
+
+/* Original mascot proportions; keep native date sizing intact. */
+.hero-mascot{width:112px;height:112px}.brand-clown{width:44px;height:44px}

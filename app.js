@@ -77,7 +77,7 @@ function bindConsultation() {
 }
 
 
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.7.0';
 const DB_NAME = 'jugscan-db';
 const DB_VERSION = 1;
 const STORE_STORES = 'stores';
@@ -106,7 +106,7 @@ const MACHINES = [
 function machineMeta(name) { return MACHINES.find(m=>m.label===name || m.promptName===name) || {id:'legacy-other',label:name,promptName:name,art:'other'}; }
 function normalizeRecord(r) { const m=machineMeta(r.machineLabel || r.machine); return {...r,machine:r.machine || m.label,machineId:r.machineId || m.id,machineLabel:r.machineLabel || m.label,machinePromptName:r.machinePromptName || m.promptName}; }
 
-const MACHINE_ART = Object.fromEntries(MACHINES.map(m => [m.label, './assets/machines/machine-'+(m.art || m.id)+'.webp']));
+const MACHINE_ART = Object.fromEntries(MACHINES.map(m => [m.label, './assets/machines/machine-'+(m.art || m.id)+'-original.svg']));
 
 const state = {
   db: null,
@@ -364,7 +364,7 @@ function renderMachineSelectors() {
   els.otherMachineSelect.addEventListener('change', () => {
     if (els.otherMachineSelect.value) void selectMachine(els.otherMachineSelect.value);
   });
-  const other = document.createElement('button'); other.type='button'; other.className='machine-btn'; other.dataset.machine='other'; other.innerHTML='<img src="./assets/machines/machine-other.webp" alt=""><span>その他</span>'; other.onclick=()=>{ els.otherMachineSelect.focus(); }; els.primaryMachines.append(other);
+  const other = document.createElement('button'); other.type='button'; other.className='machine-btn'; other.dataset.machine='other'; other.innerHTML='<img src="./assets/machines/machine-other-original.svg" alt=""><span>その他</span>'; other.onclick=()=>{ els.otherMachineSelect.focus(); }; els.primaryMachines.append(other);
   updateMachineButtons();
 }
 
