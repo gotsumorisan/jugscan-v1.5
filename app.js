@@ -77,7 +77,7 @@ function bindConsultation() {
 }
 
 
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 const DB_NAME = 'jugscan-db';
 const DB_VERSION = 1;
 const STORE_STORES = 'stores';
